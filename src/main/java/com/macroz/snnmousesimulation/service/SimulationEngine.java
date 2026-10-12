@@ -29,7 +29,7 @@ public class SimulationEngine {
 
     public SimulationEngine(SnnConfigProvider snnConfigProvider) {
         this.snnConfigProvider = snnConfigProvider;
-        this.world = new World(1000, 800, 100, snnConfigProvider.loadConfig());
+        this.world = new World(1000, 800, 20, snnConfigProvider.loadConfig());
     }
 
     public void setSpeedMultiplier(double multiplier) {
@@ -58,7 +58,7 @@ public class SimulationEngine {
     public synchronized void reloadSimulation() {
         stopSimulationLocked();
         synchronized (worldLock) {
-            this.world = new World(1000, 800, 100, snnConfigProvider.loadConfig());
+            this.world = new World(1000, 800, 20, snnConfigProvider.loadConfig());
         }
     }
 

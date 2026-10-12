@@ -1,0 +1,170 @@
+# SNN Configuration for network defined in Reinforcement
+# Learning in a Neurally Controlled Robot Using Dopamine
+# Modulated STDP by Richard Evans
+
+# -----------------------------------------------------------------------------
+# 1. Neuron Type Definitions
+# -----------------------------------------------------------------------------
+# Defines the biophysical parameters for each type of neuron used in the model.
+neuron_types:
+  RS:
+    a: 0.02
+    b: 0.2
+    c: -65.0
+    d: 8.0
+    v0: -65.0
+    u0: -13.0
+  FS:
+    a: 0.1
+    b: 0.2
+    c: -65.0
+    d: 2.0
+    v0: -65.0
+    u0: -13.0
+
+# -----------------------------------------------------------------------------
+# 2. Group Hierarchy (index ranges matter: Motors = [40, 80) for explore/motor decode)
+# -----------------------------------------------------------------------------
+# Defines the structure of the network, with nested groups forming layers.
+groups:
+  - name: Sensors
+    subgroups:
+      - name: L_food
+        neurons:
+          - type: RS
+            count: 20
+      - name: R_food
+        neurons:
+          - type: RS
+            count: 20
+  - name: Motors
+    subgroups:
+      - name: L_motor
+        neurons:
+          - type: RS
+            count: 20
+      - name: R_motor
+        neurons:
+          - type: RS
+            count: 20
+  - name: Inhibitory
+    neurons:
+      - type: FS
+        count: 20
+
+# -----------------------------------------------------------------------------
+# 3. Input Definitions
+# -----------------------------------------------------------------------------
+# Defines external inputs to specific neuron groups.
+inputs:
+  - name: MotorExplore
+    input_type: EXPLORE_DRIVE
+    target_group: Motors
+    target_type: all
+    params:
+      explore_current_mean: 2.35
+      cycle_ms: 70
+  - name: LeftFoodCone
+    input_type: DASTDP_VISION
+    target_group: Sensors.L_food
+    target_type: all
+    params:
+      fov: 90
+      range: 300
+      center_angle: -45
+      partner_center_angle: 45
+      object_radius: 24
+      range_current_gain: 30
+      cycle_ms: 70
+  - name: RightFoodCone
+    input_type: DASTDP_VISION
+    target_group: Sensors.R_food
+    target_type: all
+    params:
+      fov: 90
+      range: 300
+      center_angle: 45
+      partner_center_angle: -45
+      object_radius: 24
+      range_current_gain: 30
+      cycle_ms: 70
+  - name: InhibitoryBias
+    input_type: TONIC_NOISE
+    target_group: Inhibitory
+    target_type: all
+    params:
+      base_current: 4.0
+      noise_std: 0.16
+
+# -----------------------------------------------------------------------------
+# 4. Output Definitions
+# -----------------------------------------------------------------------------
+# Defines outputs from specific neuron groups.
+outputs:
+  - name: MotorControl
+    output_type: DASTDP_MOTOR_DRIVE
+    source_group: Motors
+    source_type: all
+    params:
+      v_max_per_s: 312.0
+      v_min_per_s: 250.0
+      wheel_base_px: 10.0
+      cycle_ms: 70.0
+
+# -----------------------------------------------------------------------------
+# 5. Connection Rules
+# -----------------------------------------------------------------------------
+# A list of rules that create synapses between neuron groups.
+connections:
+  - from: Sensors.L_food
+    to: Motors.L_motor
+    from_type: all
+    to_type: all
+    weight:
+      fixed: 0.0
+    rule:
+      type: probabilistic
+      probability: 0.85
+      allow_autapses: false
+  - from: Sensors.R_food
+    to: Motors.R_motor
+    from_type: all
+    to_type: all
+    weight:
+      fixed: 0.0
+    rule:
+      type: probabilistic
+      probability: 0.85
+      allow_autapses: false
+  - from: Sensors.L_food
+    to: Motors.R_motor
+    from_type: all
+    to_type: all
+    weight:
+      fixed: 0.0
+    rule:
+      type: probabilistic
+      probability: 0.85
+      allow_autapses: false
+  - from: Sensors.R_food
+    to: Motors.L_motor
+    from_type: all
+    to_type: all
+    weight:
+      fixed: 0.0
+    rule:
+      type: probabilistic
+      probability: 0.85
+      allow_autapses: false
+  - from: Inhibitory
+    to: root
+    from_type: all
+    to_type: RS
+    weight:
+      uniform:
+        min: -3.0
+        max: 0.0
+    rule:
+      type: probabilistic
+      probability: 0.10
+      allow_autapses: false

@@ -10,10 +10,11 @@ public class SnnEngine {
 
     // STDP Constants
     private static final double TAU_PLUS = 20.0;
-    private static final double TAU_MINUS = 20.0;
+    private static final double TAU_MINUS = 110.0;
     private static final double A_PLUS = 0.10;
     private static final double A_MINUS = 0.15;
-    private static final double MAX_WEIGHT = 50.0;
+    private static final double MAX_WEIGHT = 4.0;
+    private static final double LEARNING_RATE = 6.0;
 
     // dopamine
     private static final double TAU_C = 476.0;
@@ -106,8 +107,15 @@ public class SnnEngine {
             // u' = a(bv - u)
             int typeId = neuronToTypeId[i];
             p = neuronParamTypes.get(typeId);
+
+            v[i] += 0.5 * dt * (0.04 * v[i] * v[i] + 5 * v[i] + 140 - u[i] + I[i]);
+            if (v[i] > 30.0) v[i] = 30.0;
+
+            v[i] += 0.5 * dt * (0.04 * v[i] * v[i] + 5 * v[i] + 140 - u[i] + I[i]);
+            if (v[i] > 30.0) v[i] = 30.0;
+
+            v[i] += spikeI[i];
             u[i] += dt * (p.a() * (p.b() * v[i] - u[i]));
-            v[i] += dt * (0.04 * v[i] * v[i] + 5 * v[i] + 140 - u[i] + I[i]) + spikeI[i];
         }
 
         // 2. Handle Spikes and Reset
@@ -160,43 +168,26 @@ public class SnnEngine {
     }
 
     private void updateWeightsAndTraces(double dt) {
-        double decayTrace = Math.exp(-dt / TAU_C);
+      double decayTrace = Math.exp(-dt / TAU_C);
 
-        double dopamineSignal = dopamineLevel - dopamineBaseLevel;
+      for (int i = 0; i < totalNeuronCount; i++) {
+        double[] traces = eligibilityTraces[i];
+        double[] weights = synapticWeights[i];
 
-        boolean isDopamineActive = Math.abs(dopamineSignal) > 1e-6;
+        for (int k = 0; k < weights.length; k++) {
+          traces[k] *= decayTrace;
 
-        for (int i = 0; i < totalNeuronCount; i++) {
-            double[] traces = eligibilityTraces[i];
-            if (isDopamineActive) {
-                double[] weights = synapticWeights[i];
-                for (int k = 0; k < weights.length; k++) {
+          double weightChange = 6.0 * traces[k] * dopamineLevel * dt;
 
-                    if (weights[k] < 0) {
-                        traces[k] *= decayTrace;
-                        continue;
-                    }
-
-                    double weightChange = traces[k] * dopamineSignal * dt;
-                    if (weightChange != 0) {
-                        weights[k] += weightChange;
-                        if (weights[k] > MAX_WEIGHT) weights[k] = MAX_WEIGHT;
-                        if (weights[k] < 0) weights[k] = 0;
-                    }
-                    traces[k] *= decayTrace;
-                }
-            } else {
-                for (int k = 0; k < traces.length; k++) {
-                    traces[k] *= decayTrace;
-                }
-            }
+          if (weightChange != 0) {
+            weights[k] += weightChange;
+            if (weights[k] > MAX_WEIGHT) weights[k] = MAX_WEIGHT;
+            else if (weights[k] < 0) weights[k] = 0;
+          }
         }
+      }
 
-        double alphaBase = 1.0 - Math.exp(-dt / TAU_BASE_D);
-        dopamineBaseLevel += (dopamineLevel - dopamineBaseLevel) * alphaBase;
-
-        double decayDopamine = Math.exp(-dt / TAU_D);
-        dopamineLevel *= decayDopamine;
+      dopamineLevel += (dopamineBaseLevel - dopamineLevel) * (dt / TAU_D);
     }
 
     private void applySTDP(List<Integer> firedIndices) {
@@ -207,23 +198,25 @@ public class SnnEngine {
             for (int i = 0; i < sources.length; i++) {
                 int preNeuron = sources[i];
                 int k = sourceIndices[i];
-                double deltaW = A_PLUS * presynapticTrace[preNeuron];
-                eligibilityTraces[preNeuron][k] += deltaW;
+                if (presynapticTrace[preNeuron] > 0.0) {
+                    eligibilityTraces[preNeuron][k] += A_PLUS * presynapticTrace[preNeuron];
+                }
             }
 
             // LTD
             int[] targets = synapticTargets[firedNeuron];
             for (int k = 0; k < targets.length; k++) {
                 int postNeuron = targets[k];
-                double deltaW = -A_MINUS * postsynapticTrace[postNeuron];
-                eligibilityTraces[firedNeuron][k] += deltaW;
+                if (postsynapticTrace[postNeuron] > 0.0) {
+                    eligibilityTraces[firedNeuron][k] -= A_MINUS * postsynapticTrace[postNeuron];
+                }
             }
         }
 
         // Update traces for neurons that just fired
         for (int firedNeuron : firedIndices) {
-            presynapticTrace[firedNeuron] += 1.0;
-            postsynapticTrace[firedNeuron] += 1.0;
+            presynapticTrace[firedNeuron] = 1.0;
+            postsynapticTrace[firedNeuron] = 1.0;
         }
     }
 

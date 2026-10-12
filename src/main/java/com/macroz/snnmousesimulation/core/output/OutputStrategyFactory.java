@@ -1,5 +1,6 @@
 package com.macroz.snnmousesimulation.core.output;
 
+import com.macroz.snnmousesimulation.core.output.concrete.DastdpMotorDriveStrategy;
 import com.macroz.snnmousesimulation.core.output.concrete.ForwardDriveStrategy;
 import com.macroz.snnmousesimulation.core.output.concrete.PopulationDriveStrategy;
 import com.macroz.snnmousesimulation.core.output.concrete.TurnLeftStrategy;
@@ -17,6 +18,7 @@ public class OutputStrategyFactory {
 
     static {
         register("POPULATION_DRIVE", PopulationDriveStrategy::create);
+        register("DASTDP_MOTOR_DRIVE", DastdpMotorDriveStrategy::create);
         register("FORWARD_DRIVE", ForwardDriveStrategy::create);
         register("TURN_LEFT", TurnLeftStrategy::create);
         register("TURN_RIGHT", TurnRightStrategy::create);

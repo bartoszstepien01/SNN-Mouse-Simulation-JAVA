@@ -198,6 +198,20 @@ function renderLoop(frameTime = performance.now()) {
     animationFrameId = requestAnimationFrame(renderLoop);
 }
 
+function forToroidalCopies(x, y, radius, callback) {
+    const W = canvas.width;
+    const H = canvas.height;
+    for (const ox of [-W, 0, W]) {
+        for (const oy of [-H, 0, H]) {
+            const cx = x + ox;
+            const cy = y + oy;
+            if (cx + radius >= 0 && cx - radius <= W && cy + radius >= 0 && cy - radius <= H) {
+                callback(cx, cy);
+            }
+        }
+    }
+}
+
 /**
  * @param {SimulationState} world
  */
@@ -207,13 +221,17 @@ function render(world) {
     // Draw Food
     if (world.food) {
         world.food.forEach(f => {
-            drawEntity(f.x, f.y, 10, '#22c55e');
+            forToroidalCopies(f.x, f.y, 10, (cx, cy) => {
+                drawEntity(cx, cy, 10, '#22c55e');
+            });
         });
     }
 
     // Draw Agent
     if (world.agent) {
-        drawAgent(world.agent.x, world.agent.y, world.agent.angle);
+        forToroidalCopies(world.agent.x, world.agent.y, 250, (cx, cy) => {
+            drawAgent(cx, cy, world.agent.angle);
+        });
     }
 }
 

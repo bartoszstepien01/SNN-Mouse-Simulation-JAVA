@@ -83,7 +83,7 @@ public class Agent {
     }
 
     public void applyReward() {
-        engine.injectDopamine(5.0);
+        engine.injectDopamine(0.12);
     }
 
     public void move(double speed, double rotation) {

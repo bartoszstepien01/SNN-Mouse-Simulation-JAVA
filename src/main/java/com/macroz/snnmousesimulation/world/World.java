@@ -10,7 +10,9 @@ import java.util.List;
 import java.util.Random;
 
 public class World {
+    @Getter
     private final double width;
+    @Getter
     private final double height;
 
     @Getter
@@ -26,6 +28,8 @@ public class World {
     private final Random random = new Random();
 
     private static final double EAT_RADIUS = 30.0;
+    @Getter
+    private int foodEatenCount = 0;
 
     public World(double width, double height, int numberOfFood, SnnNetworkData snnNetworkData) {
         this.width = width;
@@ -48,7 +52,7 @@ public class World {
         agent.update(inputFrame);
         pendingAgentEvents = List.of();
         currentTickEvents.clear();
-        handleBoundaries(simulationTimeMs);
+        handleBoundaries();
 
         List<Food> collidedFoods = new ArrayList<>();
         for (Food f : food) {
@@ -66,6 +70,7 @@ public class World {
 
     private void handleFoodCollision(Food eatenFood, double timestampMs) {
         food.remove(eatenFood);
+        foodEatenCount++;
         agent.applyReward();
         currentTickEvents.add(new FoodEaten(timestampMs));
         spawnSingleFood();
@@ -88,53 +93,42 @@ public class World {
     }
 
     private double distanceSquared(double x1, double y1, double x2, double y2) {
-        double dx = x1 - x2;
-        double dy = y1 - y2;
+        double dx = wrapDelta(x1 - x2, width);
+        double dy = wrapDelta(y1 - y2, height);
         return dx * dx + dy * dy;
     }
 
-    private double normalizeAngle(double angle) {
-        while (angle > Math.PI) angle -= 2 * Math.PI;
-        while (angle < -Math.PI) angle += 2 * Math.PI;
-        return angle;
+    public static double wrapDelta(double delta, double size) {
+        if (size <= 0.0) return delta;
+        double half = size * 0.5;
+        double rem = (delta + half) % size;
+        if (rem < 0) {
+            rem += size;
+        }
+        return rem - half;
     }
 
-    private void handleBoundaries(double timestampMs) {
+    public static double wrapCoordinate(double coord, double size) {
+        if (size <= 0.0) return coord;
+        double wrapped = coord % size;
+        if (wrapped < 0) {
+            wrapped += size;
+        }
+        return wrapped == 0.0 ? 0.0 : wrapped;
+    }
+
+    private void handleBoundaries() {
         double x = agent.getX();
         double y = agent.getY();
-        double angle = agent.getAngle();
-        boolean bounced = false;
 
-        // Check horizontal walls (Left/Right)
-        if (x < 0) {
-            x = -x;
-            angle = Math.PI - angle;
-            bounced = true;
-            currentTickEvents.add(new BoundaryHit(timestampMs, BoundaryHit.Side.LEFT));
-        } else if (x > width) {
-            x = 2 * width - x;
-            angle = Math.PI - angle;
-            bounced = true;
-            currentTickEvents.add(new BoundaryHit(timestampMs, BoundaryHit.Side.RIGHT));
+        double wrappedX = wrapCoordinate(x, width);
+        double wrappedY = wrapCoordinate(y, height);
+
+        if (wrappedX != x) {
+            agent.setX(wrappedX);
         }
-
-        // Check vertical walls (Top/Bottom)
-        if (y < 0) {
-            y = -y;
-            angle = -angle;
-            bounced = true;
-            currentTickEvents.add(new BoundaryHit(timestampMs, BoundaryHit.Side.TOP));
-        } else if (y > height) {
-            y = 2 * height - y;
-            angle = -angle;
-            bounced = true;
-            currentTickEvents.add(new BoundaryHit(timestampMs, BoundaryHit.Side.BOTTOM));
-        }
-
-        if (bounced) {
-            agent.setX(x);
-            agent.setY(y);
-            agent.setAngle(normalizeAngle(angle));
+        if (wrappedY != y) {
+            agent.setY(wrappedY);
         }
     }
 }
